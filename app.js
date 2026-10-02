@@ -8,7 +8,7 @@ try {
   progress = { xp: 0, known: {}, mistakes: {}, day: '', today: [] };
 }
 
-let view = 'home', cat = null, game = null, race = null, match = null;
+let view = 'home', currentCat = null, game = null, race = null, match = null;
 
 function save() {
   try {
@@ -141,7 +141,7 @@ function home() {
 }
 
 function openCat(id) {
-  cat = categories.find(c => c.id === id);
+  currentCat = categories.find(c => c.id === id);
   view = 'list';
   game = null;
   list();
@@ -168,33 +168,33 @@ function modes() {
     <div class="toolbar">
       <button class="primary" data-mode="quiz">🎯 Anlamını bul</button>
       <button class="secondary" data-mode="listen">🎧 Dinle ve seç</button>
-      <button class="secondary" data-mode="write">✍️ Kelimeyi yaz</button>
+      <button class="secondary" data-mode="write">✍ Kelimeyi yaz</button>
       <button class="secondary" data-mode="match">🧩 Eşleştir</button>
-      ${cat?.words?.some(w => w.example) ? '<button class="yellow" data-mode="sentence">⚡ Cümleyi tamamla</button>' : ''}
+      ${currentCat?.words?.some(w => w.example) ? '<button class="yellow" data-mode="sentence">⚡ Cümleyi tamamla</button>' : ''}
     </div>`;
 }
 
 function list() {
   const app = $('#app');
-  if (!app || !cat) return;
+  if (!app || !currentCat) return;
   app.innerHTML = `
     <button class="back secondary" data-nav="home">Keşif adalarına dön</button>
     <div class="topline">
       <div>
         <div class="eyebrow">ÖNCE TANI, SONRA OYNA</div>
-        <h1>${cat.icon} ${cat.title}</h1>
-        <p>${cat.words.length} öğe. 🔊 ile dinle, 🐢 ile yavaş dinle ve ardından sesli tekrar et.</p>
+        <h1>${currentCat.icon} ${currentCat.title}</h1>
+        <p>${currentCat.words.length} öğe. 🔊 ile dinle, 🐢 ile yavaş dinle ve ardından sesli tekrar et.</p>
       </div>
-      <span class="pill">${cat.words.filter(known).length} / ${cat.words.length} çalışıldı</span>
+      <span class="pill">${currentCat.words.filter(known).length} / ${currentCat.words.length} çalışıldı</span>
     </div>
     ${modes()}
     <div class="note">Bir kerede 5–10 öğe yeterli. Oyunlar kısa turlar halinde ilerler. Okunuş için İngilizce sesi örnek al.</div>
-    <div class="words" style="margin-top:20px">${cat.words.map(wordMarkup).join('')}</div>`;
+    <div class="words" style="margin-top:20px">${currentCat.words.map(wordMarkup).join('')}</div>`;
 }
 
 function review() {
   const ws = (typeof allWords !== 'undefined' ? allWords : []).filter(w => progress.mistakes[w.id]);
-  cat = { id: 'review', title: 'Tekrar çantam', icon: '🎒', words: ws };
+  currentCat = { id: 'review', title: 'Tekrar çantam', icon: '🎒', words: ws };
   const app = $('#app');
   if (!app) return;
   app.innerHTML = `
@@ -211,9 +211,9 @@ function review() {
 }
 
 function startGame(mode) {
-  if (!cat || !cat.words.length) return;
+  if (!currentCat || !currentCat.words.length) return;
   if (mode === 'match') { startMatch(); return; }
-  const source = mode === 'sentence' ? cat.words.filter(w => w.example) : cat.words;
+  const source = mode === 'sentence' ? currentCat.words.filter(w => w.example) : currentCat.words;
   if (!source.length) return;
   const words = shuffle(source).sort((a, b) => Number(!!progress.mistakes[b.id]) - Number(!!progress.mistakes[a.id])).slice(0, 10);
   game = { mode, words, index: 0, correct: 0, answered: false };
@@ -227,7 +227,7 @@ function options(w, pool, field) {
 function maskExample(w) {
   const exact = w.example[0].toLowerCase().indexOf(w.en.toLowerCase());
   if (exact >= 0) return w.example[0].slice(0, exact) + '_____' + w.example[0].slice(exact + w.en.length);
-  return w.example[0].replace(new RegExp('\\b' + w.en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:s|es)?\\b', 'i'), '_____');
+  return w.example[0].replace(new RegExp('\b' + w.en.replace(/[.*+?^${}()|[\]\]/g, '\$&') + '(?:s|es)?\b', 'i'), '_____');
 }
 
 function question() {
@@ -237,7 +237,7 @@ function question() {
   g.answered = false;
   const w = g.words[g.index];
   const field = g.mode === 'listen' ? 'en' : g.mode === 'sentence' ? 'en' : 'tr';
-  const pool = (cat && cat.words.length >= 4) ? cat.words : allWords;
+  const pool = (currentCat && currentCat.words.length >= 4) ? currentCat.words : allWords;
   const choices = options(w, pool, field);
 
   let prompt = g.mode === 'listen'
@@ -317,7 +317,7 @@ function results() {
         <div class="results">🏆</div>
         <h1>${winners.map(p => esc(p.name)).join(' & ')} ${winners.length > 1 ? 'berabere!' : 'kazandı!'}</h1>
         <p>Hepiniz yeni kelimeler çalıştınız. Asıl kazanç bu!</p>
-        ${sorted.map((p, i) => `<div class="daily"><b>${i + 1}.${esc(p.name)}</b><span class="grow"></span><b>${p.score} puan</b></div>`).join('')}
+        ${sorted.map((p, i) => `<div class="daily"><b>${i + 1}. ${esc(p.name)}</b><span class="grow"></span><b>${p.score} puan</b></div>`).join('')}
         <div class="toolbar"><button class="primary" data-nav="race">Yeni yarış</button><button class="secondary" data-nav="home">Adalara dön</button></div>
       </div>`;
     race = null;
@@ -335,7 +335,7 @@ function results() {
 }
 
 function startMatch() {
-  const words = shuffle(cat.words).slice(0, 5);
+  const words = shuffle(currentCat.words).slice(0, 5);
   match = { words, left: shuffle(words), right: shuffle(words), a: null, b: null, done: [], locked: false };
   drawMatch();
 }
@@ -387,7 +387,7 @@ function drawMatch() {
 }
 
 function raceSetup() {
-  cat = null;
+  currentCat = null;
   const app = $('#app');
   if (!app) return;
   app.innerHTML = `
@@ -399,7 +399,7 @@ function raceSetup() {
       <select id="count"><option value="2">2 kişi</option><option value="3">3 kişi</option><option value="4">4 kişi</option></select>
       <div class="players" id="names"></div>
       <label for="racecat">Kelime adası</label>
-      <select id="racecat">${categories.map(c => `<option value="${c.id}">${c.icon}${c.title}</option>`).join('')}</select>
+      <select id="racecat">${categories.map(c => `<option value="${c.id}">${c.icon} ${c.title}</option>`).join('')}</select>
       <label for="racemode">Oyun türü</label>
       <select id="racemode"><option value="quiz">İngilizceden Türkçeye</option><option value="listen">Dinle ve İngilizcesini seç</option></select>
       <button class="yellow">🏁 Yarışı başlat</button>
@@ -419,9 +419,9 @@ function raceSetup() {
   $('#raceform').onsubmit = e => {
     e.preventDefault();
     const n = +$('#count').value;
-    cat = categories.find(c => c.id === $('#racecat').value);
+    currentCat = categories.find(c => c.id === $('#racecat').value);
     race = { players: Array.from({ length: n }, (_, i) => ({ name: $('#p' + i).value.trim() || 'Oyuncu ' + (i + 1), score: 0 })) };
-    const pool = shuffle(cat.words);
+    const pool = shuffle(currentCat.words);
     const words = Array.from({ length: n * 5 }, (_, i) => pool[i % pool.length]);
     game = { mode: $('#racemode').value, words, index: 0, correct: 0, answered: false };
     question();
